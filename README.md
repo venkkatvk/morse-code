@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Morse Code Interpreter
 
 A production-style multi-modal Morse Code Interpreter built with FastAPI, Pydantic V2, SciPy DSP audio processing, and Streamlit.
@@ -96,3 +97,6 @@ This should decode roughly to `Hello World` and return a structured translation 
 ## License
 
 MIT License
+=======
+# New-1
+>>>>>>> 3bf94e22527237865237e2e06716f107e7fa2e4e
