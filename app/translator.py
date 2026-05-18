@@ -3,7 +3,7 @@
 import re
 from typing import Any, Dict
 from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models import OpenAIModel
 
 from app.logger import get_logger
 from app.schemas import TranslationResponse
