@@ -1,15 +1,12 @@
 """Morse validation, decoding, lookup, and Pydantic AI orchestration."""
-"""Morse validation, decoding, lookup, and Pydantic AI orchestration."""
 
 import re
-from typing import Dict
+from typing import Any, Dict
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIModel
 
 from app.logger import get_logger
 from app.schemas import TranslationResponse
-
-OpenAIModel = _OpenAIModel
 
 logger = get_logger(__name__)
 
@@ -19,25 +16,15 @@ MORSE_CODE_DICT: Dict[str, str] = {
     "-.-": "K", ".-..": "L", "--": "M", "-.": "N", "---": "O",
     ".--.": "P", "--.-": "Q", ".-.": "R", "...": "S", "-": "T",
     "..-": "U", "...-": "V", ".--": "W", "-..-": "X", "-.--": "Y",
-    "--..": "Z", "-----": "0", ".----": "1", "..---": "2",
-    "...--": "3", "....-": "4", ".....": "5", "-....": "6",
-    "--...": "7", "---..": "8", "----.": "9", ".-.-.-": ".",
-    "--..--": ",", "..–..": "?", ".----.": "'", "-.-.–": "!",
-    "-..-.": "/", "-.--.-": ")", "-.--.": "(", ".-...": "&",
-    "---...": ":", "-.-.-.": ";", "-...-": "=", ".-.-.": "+",
-    "-....-": "-", "..--.-": "_", ".-..-.": '"', ".--.-.": "@",
-    ".-": "A", "-...": "B", "-.-.": "C", "-..": "D", ".": "E",
-    "..-.": "F", "--.": "G", "....": "H", "..": "I", ".---": "J",
-    "-.-": "K", ".-..": "L", "--": "M", "-.": "N", "---": "O",
-    ".--.": "P", "--.-": "Q", ".-.": "R", "...": "S", "-": "T",
-    "..-": "U", "...-": "V", ".--": "W", "-..-": "X", "-.--": "Y",
-    "--..": "Z", "-----": "0", ".----": "1", "..---": "2",
-    "...--": "3", "....-": "4", ".....": "5", "-....": "6",
-    "--...": "7", "---..": "8", "----.": "9", ".-.-.-": ".",
-    "--..--": ",", "..–..": "?", ".----.": "'", "-.-.–": "!",
-    "-..-.": "/", "-.--.-": ")", "-.--.": "(", ".-...": "&",
-    "---...": ":", "-.-.-.": ";", "-...-": "=", ".-.-.": "+",
-    "-....-": "-", "..--.-": "_", ".-..-.": '"', ".--.-.": "@",
+    "--..": "Z",
+    "-----": "0", ".----": "1", "..---": "2", "...--": "3",
+    "....-": "4", ".....": "5", "-....": "6", "--...": "7",
+    "---..": "8", "----.": "9",
+    ".-.-.-": ".", "--..--": ",", "..--..": "?", ".----.": "'",
+    "-.-.--": "!", "-..-.": "/", "-.--.": "(", "-.--.-": ")",
+    ".-...": "&", "---...": ":", "-.-.-.": ";", "-...-": "=",
+    ".-.-.": "+", "-....-": "-", "..--.-": "_", ".-..-.": '"',
+    ".--.-.": "@",
 }
 
 ALLOWED_MORSE_PATTERN = re.compile(r"^[\.\-\s/]+$")
@@ -94,18 +81,34 @@ def validate_morse_input(morse_code: str) -> str:
     return normalized.strip()
 
 
+def _normalize_agent_output(result: Any) -> TranslationResponse:
+    if isinstance(result, TranslationResponse):
+        return result
+    if hasattr(result, "data"):
+        return result.data
+    if isinstance(result, dict):
+        return TranslationResponse(**result)
+    return TranslationResponse(
+        translated_text=str(result),
+        confidence_score=0.0,
+        is_corrupted=True,
+    )
+
+
 def translate_morse_pipeline(morse_code: str) -> TranslationResponse:
     """Translate Morse code through validation and our live Pydantic AI Agent."""
     normalized_morse = validate_morse_input(morse_code)
     
     try:
         logger.info("Engaging Pydantic AI Cognitive Run...")
-        result = morse_agent.run_sync(
-            f"Please translate and smooth this raw Morse code stream: {normalized_morse}"
-        )
-        return result.data
+        prompt = f"Please translate and smooth this raw Morse code stream: {normalized_morse}"
+        if hasattr(morse_agent, "run_sync"):
+            result = morse_agent.run_sync(prompt)
+        else:
+            result = morse_agent.run(prompt)
+        return _normalize_agent_output(result)
 
-    except Exception as exc:
+    except Exception:
         logger.exception("Pydantic AI engine faulted, executing graceful fallback protocol.")
         
         # Fixed: Removed the non-existent 'decode_logic' import module completely.
