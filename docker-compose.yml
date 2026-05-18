@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  backend-api:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    image: morse-interpreter-backend:latest
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    env_file:
+      - .env
+    # Python-native health check avoids installing curl inside the slim container
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - factory_grid
+
+  frontend-ui:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: morse-interpreter-frontend:latest
+    ports:
+      - "${FRONTEND_PORT:-8501}:8501"
+    environment:
+      - BACKEND_URL=http://backend-api:8000
+    env_file:
+      - .env
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    networks:
+      - factory_grid
+
+networks:
+  factory_grid:
+    driver: bridge
