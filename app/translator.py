@@ -5,11 +5,11 @@ import re
 from typing import Dict
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIModel
-from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIModel
 
 from app.logger import get_logger
 from app.schemas import TranslationResponse
+
+OpenAIModel = _OpenAIModel
 
 logger = get_logger(__name__)
 
