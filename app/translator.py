@@ -1,7 +1,10 @@
 """Morse validation, decoding, lookup, and Pydantic AI orchestration."""
+"""Morse validation, decoding, lookup, and Pydantic AI orchestration."""
 
 import re
 from typing import Dict
+from pydantic_ai import Agent
+from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIModel
 
@@ -23,6 +26,18 @@ MORSE_CODE_DICT: Dict[str, str] = {
     "-..-.": "/", "-.--.-": ")", "-.--.": "(", ".-...": "&",
     "---...": ":", "-.-.-.": ";", "-...-": "=", ".-.-.": "+",
     "-....-": "-", "..--.-": "_", ".-..-.": '"', ".--.-.": "@",
+    ".-": "A", "-...": "B", "-.-.": "C", "-..": "D", ".": "E",
+    "..-.": "F", "--.": "G", "....": "H", "..": "I", ".---": "J",
+    "-.-": "K", ".-..": "L", "--": "M", "-.": "N", "---": "O",
+    ".--.": "P", "--.-": "Q", ".-.": "R", "...": "S", "-": "T",
+    "..-": "U", "...-": "V", ".--": "W", "-..-": "X", "-.--": "Y",
+    "--..": "Z", "-----": "0", ".----": "1", "..---": "2",
+    "...--": "3", "....-": "4", ".....": "5", "-....": "6",
+    "--...": "7", "---..": "8", "----.": "9", ".-.-.-": ".",
+    "--..--": ",", "..–..": "?", ".----.": "'", "-.-.–": "!",
+    "-..-.": "/", "-.--.-": ")", "-.--.": "(", ".-...": "&",
+    "---...": ":", "-.-.-.": ";", "-...-": "=", ".-.-.": "+",
+    "-....-": "-", "..--.-": "_", ".-..-.": '"', ".--.-.": "@",
 }
 
 ALLOWED_MORSE_PATTERN = re.compile(r"^[\.\-\s/]+$")
@@ -31,26 +46,26 @@ ALLOWED_MORSE_PATTERN = re.compile(r"^[\.\-\s/]+$")
 # 🧠 THE COGNITIVE REVOLUTION: PYDANTIC AI AGENT DEFINITION
 # =====================================================================
 
-# 1. Initialize the model provider (Ensure OPENAI_API_KEY is in your environment)
 llm_model = OpenAIModel('gpt-4o')
 
-# 2. Define the Agent with its Strict System Blueprint and Structured Result Contract
 morse_agent = Agent(
     model=llm_model,
-    result_type=TranslationResponse,  # Forces output into our strict Pydantic box!
+    result_type=TranslationResponse,
     system_prompt=(
         "You are an elite telecommunications decryption agent specializing in Morse code correction. "
-        "You will receive a raw text that was literally translated from Morse code. "
-        "Your duty is to perform semantic smoothing, correct spelling errors caused by missing signals, "
-        "and properly capitalize the sentences into beautiful, fluent English. "
-        "If the input contains too many unresolved symbols ('?'), deduce the text from context, "
-        "flag 'is_corrupted' as true, and adjust the 'confidence_score' accordingly."
+        "You will receive a raw Morse code stream of dots, dashes, and slashes. "
+        "You MUST first invoke your 'deterministic_dictionary_tool' to get the literal character lookup. "
+        "Once you receive the raw translation back from the tool, perform semantic smoothing, "
+        "correct any spelling errors caused by corrupted or missing signals, and properly format "
+        "the output sentences into clean, fluent, capitalized English. "
+        "If the tool output contains too many unresolved characters ('?'), use your linguistic context "
+        "to deduce the intended word, flag 'is_corrupted' as true, and lower your 'confidence_score' accordingly."
     )
 )
 
-# 3. Register our Deterministic Lookup Tool directly to the Agent's runtime environment!
+# Fixed: Removed unused 'ctx' parameter to ensure type-safe tool registry
 @morse_agent.tool
-def deterministic_dictionary_tool(ctx, morse_code_chunk: str) -> str:
+def deterministic_dictionary_tool(morse_code_chunk: str) -> str:
     """A deterministic character-by-character dictionary lookup tool for Morse code."""
     words = [word.strip() for word in morse_code_chunk.split("/")]
     decoded_words = []
@@ -81,27 +96,25 @@ def validate_morse_input(morse_code: str) -> str:
 
 def translate_morse_pipeline(morse_code: str) -> TranslationResponse:
     """Translate Morse code through validation and our live Pydantic AI Agent."""
-    # Step 1: Input Validation Gate
     normalized_morse = validate_morse_input(morse_code)
     
     try:
         logger.info("Engaging Pydantic AI Cognitive Run...")
-        
-        # Step 2: Synchronously run the agent. 
-        # The agent will automatically invoke the 'deterministic_dictionary_tool' if it needs it!
         result = morse_agent.run_sync(
             f"Please translate and smooth this raw Morse code stream: {normalized_morse}"
         )
-        
-        # 'result.data' is guaranteed to be an instance of TranslationResponse!
         return result.data
 
     except Exception as exc:
         logger.exception("Pydantic AI engine faulted, executing graceful fallback protocol.")
         
-        # Step 3: Graceful Degradation / Fallback Gate
-        from decode_logic import decode_morse # fall back to manual decoding if LLM fails completely
-        raw_decoded = "".join([MORSE_CODE_DICT.get(c, "?") for c in normalized_morse.split() if c])
+        # Fixed: Removed the non-existent 'decode_logic' import module completely.
+        words = [w.strip() for w in normalized_morse.split("/")]
+        raw_decoded_words = []
+        for word in words:
+            chars = [c.strip() for c in word.split(" ") if c.strip()]
+            raw_decoded_words.append("".join([MORSE_CODE_DICT.get(c, "?") for c in chars]))
+        raw_decoded = " ".join(raw_decoded_words)
         
         return TranslationResponse(
             translated_text=f"[FALLBACK LOGIC]: {raw_decoded}",
